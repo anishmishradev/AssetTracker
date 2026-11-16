@@ -95,9 +95,74 @@ public class AssetsController : ControllerBase
             .ToListAsync());
     }
 
+
+// Bonus - Paging and category filter
+[HttpGet("paged")]
+public async Task<IActionResult> GetPaged(
+    [FromQuery] string? status,
+    [FromQuery] string? search,
+    [FromQuery] string? category,
+    [FromQuery] int page = 1,
+    [FromQuery] int pageSize = 5)
+{
+    var denied = CheckAccess();
+    if (denied != null)
+        return denied;
+
+    if (page < 1 || pageSize < 1 || pageSize > 100)
+        return Error(400, "VALIDATION",
+            "Invalid page or page size.");
+
+    var query = _db.Assets.AsNoTracking().AsQueryable();
+
+    if (!string.IsNullOrWhiteSpace(status))
+    {
+        if (status != "Available" &&
+            status != "CheckedOut" &&
+            status != "Retired")
+            return Error(400, "VALIDATION",
+                "Invalid asset status.");
+
+        query = query.Where(a => a.Status == status);
+    }
+
+    if (!string.IsNullOrWhiteSpace(search))
+    {
+        var term = search.Trim();
+
+        query = query.Where(a =>
+            a.Name.Contains(term) ||
+            a.Tag.Contains(term));
+    }
+
+    if (!string.IsNullOrWhiteSpace(category))
+    {
+        var selectedCategory = category.Trim();
+        query = query.Where(a => a.Category == selectedCategory);
+    }
+
+    var totalCount = await query.CountAsync();
+
+    var items = await query
+        .OrderBy(a => a.Id)
+        .Skip((page - 1) * pageSize)
+        .Take(pageSize)
+        .ToListAsync();
+
+    return Ok(new
+    {
+        items,
+        totalCount,
+        page,
+        pageSize,
+        totalPages = (int)Math.Ceiling(
+            totalCount / (double)pageSize)
+    });
+}
     // -------------------------------
     // Get asset by ID
     // -------------------------------
+
 
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id)
