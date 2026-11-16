@@ -1,1 +1,115 @@
-/* You can add global styles to this file, and also import other style files */
+
+@import "bootstrap/dist/css/bootstrap.min.css";
+@import "bootstrap-icons/font/bootstrap-icons.css";
+
+:root {
+  --app-bg: #f5f7fb;
+  --app-primary: #263f8c;
+}
+
+body {
+  background: var(--app-bg);
+  color: #253047;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+}
+
+.app-navbar {
+  background: linear-gradient(110deg, #172554, #304d9b);
+}
+
+.app-shell {
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+.app-card {
+  background: white;
+  border: 1px solid #e8edf5;
+  border-radius: 16px;
+  box-shadow: 0 5px 20px rgba(26, 42, 80, 0.04);
+}
+
+.page-heading {
+  font-weight: 750;
+  letter-spacing: -0.7px;
+}
+
+.stat-card {
+  border-radius: 14px;
+  background: white;
+  padding: 20px;
+  border: 1px solid #e8edf5;
+}
+
+.stat-number {
+  font-size: 30px;
+  font-weight: 750;
+}
+
+.table thead th {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  white-space: nowrap;
+}
+
+.table tbody td {
+  vertical-align: middle;
+  padding-top: 15px;
+  padding-bottom: 15px;
+}
+
+.asset-tag {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 12px;
+  background: #edf2ff;
+  color: #304d9b;
+  padding: 6px 9px;
+  border-radius: 7px;
+}
+
+.status-badge {
+  font-size: 12px;
+  padding: 7px 11px;
+  border-radius: 999px;
+  font-weight: 650;
+  display: inline-block;
+}
+
+.status-Available {
+  color: #087443;
+  background: #dcfce7;
+}
+
+.status-CheckedOut {
+  color: #9a5800;
+  background: #fef3c7;
+}
+
+.status-Retired {
+  color: #64748b;
+  background: #e2e8f0;
+}
+
+.form-control, .form-select {
+  border-radius: 9px;
+  min-height: 42px;
+}
+
+.btn {
+  border-radius: 9px;
+  font-weight: 600;
+}
+
+.nav-link.active {
+  background: rgba(255,255,255,.16);
+  border-radius: 8px;
+}
+
+@media (max-width: 767px) {
+  .page-heading { font-size: 24px; }
+  .stat-number { font-size: 24px; }
+  .app-card { border-radius: 12px; }
+}
