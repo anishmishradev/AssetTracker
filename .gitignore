@@ -1,0 +1,17 @@
+
+# .NET build output
+**/bin/
+**/obj/
+
+# SQLite databases
+**/*.db
+**/*.db-shm
+**/*.db-wal
+
+# Angular
+**/node_modules/
+**/dist/
+**/.angular/
+
+# macOS
+.DS_Store
