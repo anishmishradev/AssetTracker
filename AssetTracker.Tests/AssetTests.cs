@@ -7,10 +7,11 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Xunit;
+using NUnit.Framework;
 
 namespace AssetTracker.Tests;
 
+[TestFixture]
 public class AssetTests
 {
     private sealed class TestApiFactory : WebApplicationFactory<Program>
@@ -55,13 +56,16 @@ public class AssetTests
         var client = factory.CreateClient();
 
         if (!string.IsNullOrWhiteSpace(userId))
-            client.DefaultRequestHeaders.Add("X-User-Id", userId);
+        {
+            client.DefaultRequestHeaders.Add(
+                "X-User-Id", userId);
+        }
 
         return client;
     }
 
-    // R7 - Seed data
-    [Fact]
+    // R7: Seed data
+    [Test]
     public async Task FirstRun_Seeds_Ten_Assets()
     {
         using var factory = new TestApiFactory();
@@ -70,12 +74,12 @@ public class AssetTests
         var assets = await client.GetFromJsonAsync<List<AssetDto>>(
             "/api/assets");
 
-        Assert.NotNull(assets);
-        Assert.Equal(10, assets.Count);
+        Assert.That(assets, Is.Not.Null);
+        Assert.That(assets, Has.Count.EqualTo(10));
     }
 
-    // R5 - Employee cannot create
-    [Fact]
+    // R5: Employee cannot create
+    [Test]
     public async Task Employee_Cannot_Create_Asset()
     {
         using var factory = new TestApiFactory();
@@ -90,13 +94,13 @@ public class AssetTests
                 category = "Laptop"
             });
 
-        Assert.Equal(
-            HttpStatusCode.Forbidden,
-            response.StatusCode);
+        Assert.That(
+            response.StatusCode,
+            Is.EqualTo(HttpStatusCode.Forbidden));
     }
 
-    // R5 - Missing identity
-    [Fact]
+    // R5: Missing identity
+    [Test]
     public async Task Missing_User_Returns_401()
     {
         using var factory = new TestApiFactory();
@@ -104,13 +108,13 @@ public class AssetTests
 
         var response = await client.GetAsync("/api/assets");
 
-        Assert.Equal(
-            HttpStatusCode.Unauthorized,
-            response.StatusCode);
+        Assert.That(
+            response.StatusCode,
+            Is.EqualTo(HttpStatusCode.Unauthorized));
     }
 
-    // R3 - Checkout and return
-    [Fact]
+    // R3: Checkout and return
+    [Test]
     public async Task Employee_Can_Checkout_And_Return_Own_Asset()
     {
         using var factory = new TestApiFactory();
@@ -119,30 +123,34 @@ public class AssetTests
         var checkout = await client.PostAsync(
             "/api/assets/1/checkout", null);
 
-        Assert.Equal(HttpStatusCode.OK, checkout.StatusCode);
+        Assert.That(
+            checkout.StatusCode,
+            Is.EqualTo(HttpStatusCode.OK));
 
         var checkedOut = await client.GetFromJsonAsync<AssetDto>(
             "/api/assets/1");
 
-        Assert.NotNull(checkedOut);
-        Assert.Equal("CheckedOut", checkedOut.Status);
-        Assert.Equal("emp1", checkedOut.HeldByUserId);
+        Assert.That(checkedOut, Is.Not.Null);
+        Assert.That(checkedOut!.Status, Is.EqualTo("CheckedOut"));
+        Assert.That(checkedOut.HeldByUserId, Is.EqualTo("emp1"));
 
         var returned = await client.PostAsync(
             "/api/assets/1/return", null);
 
-        Assert.Equal(HttpStatusCode.OK, returned.StatusCode);
+        Assert.That(
+            returned.StatusCode,
+            Is.EqualTo(HttpStatusCode.OK));
 
         var available = await client.GetFromJsonAsync<AssetDto>(
             "/api/assets/1");
 
-        Assert.NotNull(available);
-        Assert.Equal("Available", available.Status);
-        Assert.Null(available.HeldByUserId);
+        Assert.That(available, Is.Not.Null);
+        Assert.That(available!.Status, Is.EqualTo("Available"));
+        Assert.That(available.HeldByUserId, Is.Null);
     }
 
-    // R5 - Ownership
-    [Fact]
+    // R5: Ownership
+    [Test]
     public async Task Employee_Cannot_Return_Another_Users_Asset()
     {
         using var factory = new TestApiFactory();
@@ -152,32 +160,35 @@ public class AssetTests
         var checkout = await employee1.PostAsync(
             "/api/assets/1/checkout", null);
 
-        Assert.Equal(HttpStatusCode.OK, checkout.StatusCode);
+        Assert.That(
+            checkout.StatusCode,
+            Is.EqualTo(HttpStatusCode.OK));
 
         var response = await employee2.PostAsync(
             "/api/assets/1/return", null);
 
-        Assert.Equal(
-            HttpStatusCode.Forbidden,
-            response.StatusCode);
+        Assert.That(
+            response.StatusCode,
+            Is.EqualTo(HttpStatusCode.Forbidden));
     }
 
-    // R4 - Race condition
-    [Fact]
+    // R4: Race condition
+    [Test]
     public async Task Two_Concurrent_Checkouts_Only_One_Succeeds()
     {
         using var factory = new TestApiFactory();
         using var employee1 = CreateClient(factory, "emp1");
         using var employee2 = CreateClient(factory, "emp2");
 
-        // Initialize the server and seed the database.
+        // Initialize server and seed the database.
         var setup = await employee1.GetAsync("/api/assets");
         setup.EnsureSuccessStatusCode();
 
         var gate = new TaskCompletionSource<bool>(
             TaskCreationOptions.RunContinuationsAsynchronously);
 
-        async Task<HttpStatusCode> AttemptCheckout(HttpClient client)
+        async Task<HttpStatusCode> AttemptCheckout(
+            HttpClient client)
         {
             await gate.Task;
 
@@ -190,27 +201,34 @@ public class AssetTests
         var first = AttemptCheckout(employee1);
         var second = AttemptCheckout(employee2);
 
-        // Release both requests together.
+        // Release both requests at the same time.
         gate.SetResult(true);
 
         var results = await Task.WhenAll(first, second);
 
-        Assert.Equal(
-            1, results.Count(s => s == HttpStatusCode.OK));
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                results.Count(s => s == HttpStatusCode.OK),
+                Is.EqualTo(1));
 
-        Assert.Equal(
-            1, results.Count(s => s == HttpStatusCode.Conflict));
+            Assert.That(
+                results.Count(s => s == HttpStatusCode.Conflict),
+                Is.EqualTo(1));
+        });
 
         var asset = await employee1.GetFromJsonAsync<AssetDto>(
             "/api/assets/2");
 
-        Assert.NotNull(asset);
-        Assert.Equal("CheckedOut", asset.Status);
-        Assert.Contains(asset.HeldByUserId, new[] { "emp1", "emp2" });
+        Assert.That(asset, Is.Not.Null);
+        Assert.That(asset!.Status, Is.EqualTo("CheckedOut"));
+        Assert.That(
+            asset.HeldByUserId,
+            Is.AnyOf("emp1", "emp2"));
     }
 
-    // R1 - Immutable asset tag
-    [Fact]
+    // R1: Immutable asset tag
+    [Test]
     public async Task Admin_Edit_Does_Not_Change_Asset_Tag()
     {
         using var factory = new TestApiFactory();
@@ -225,18 +243,20 @@ public class AssetTests
                 tag = "CHANGED-TAG"
             });
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.That(
+            response.StatusCode,
+            Is.EqualTo(HttpStatusCode.OK));
 
         var asset = await admin.GetFromJsonAsync<AssetDto>(
             "/api/assets/1");
 
-        Assert.NotNull(asset);
-        Assert.Equal("AST-001", asset.Tag);
-        Assert.Equal("Updated Laptop", asset.Name);
+        Assert.That(asset, Is.Not.Null);
+        Assert.That(asset!.Tag, Is.EqualTo("AST-001"));
+        Assert.That(asset.Name, Is.EqualTo("Updated Laptop"));
     }
 
-    // R5 - 404 takes priority over 403
-    [Fact]
+    // R5: 404 takes priority over 403
+    [Test]
     public async Task Unknown_Asset_Returns_404_Even_For_Employee()
     {
         using var factory = new TestApiFactory();
@@ -250,11 +270,13 @@ public class AssetTests
                 category = "Laptop"
             });
 
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.That(
+            response.StatusCode,
+            Is.EqualTo(HttpStatusCode.NotFound));
     }
 
-    // R3 - Checked out assets cannot be retired
-    [Fact]
+    // R3: Checked-out assets cannot be retired
+    [Test]
     public async Task CheckedOut_Asset_Cannot_Be_Retired()
     {
         using var factory = new TestApiFactory();
@@ -264,12 +286,16 @@ public class AssetTests
         var checkout = await employee.PostAsync(
             "/api/assets/1/checkout", null);
 
-        Assert.Equal(HttpStatusCode.OK, checkout.StatusCode);
+        Assert.That(
+            checkout.StatusCode,
+            Is.EqualTo(HttpStatusCode.OK));
 
         var retire = await admin.PostAsync(
             "/api/assets/1/retire", null);
 
-        Assert.Equal(HttpStatusCode.Conflict, retire.StatusCode);
+        Assert.That(
+            retire.StatusCode,
+            Is.EqualTo(HttpStatusCode.Conflict));
     }
 
     public record AssetDto(
